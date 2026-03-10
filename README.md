@@ -280,37 +280,15 @@ This repo is structured to keep firmware, gateway, tooling, and documentation cl
 ```text
 .
 ├─ docs/
-│  ├─ architecture.md
-│  ├─ wiring.md
-│  ├─ safety_model.md
-│  ├─ fault_injection.md
-│  ├─ logging_format.md
-│  └─ test_campaigns.md
 ├─ firmware/
 │  ├─ worker-common/
-│  │  ├─ include/
-│  │  ├─ src/
-│  │  ├─ CMakeLists.txt
-│  │  └─ README.md
 │  ├─ worker-a/
-│  │  ├─ include/
-│  │  ├─ src/
-│  │  ├─ linker/
-│  │  └─ README.md
 │  ├─ worker-b/
-│  │  ├─ include/
-│  │  ├─ src/
-│  │  ├─ linker/
-│  │  └─ README.md
 │  └─ tools/
 │     ├─ openocd/
 │     └─ scripts/
 ├─ gateway/
 │  ├─ sentinel-gw/
-│  │  ├─ src/
-│  │  ├─ config/
-│  │  ├─ systemd/
-│  │  └─ README.md
 │  └─ tools/
 │     ├─ capture/
 │     ├─ replay/
