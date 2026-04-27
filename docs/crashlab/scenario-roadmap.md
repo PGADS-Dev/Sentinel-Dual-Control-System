@@ -78,7 +78,7 @@ Reason:
 ## Done Criteria
 
 This roadmap is considered complete when:
-- at least 5 failure scenarios are listed
+- 10 candidate failure scenarios are listed
 - each scenario has a clear proof objective
 - the first scenario is selected
 - the roadmap links naturally to the public crash autopsy template
