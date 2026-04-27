@@ -22,17 +22,6 @@ A scenario is selected only if it demonstrates at least one of the following:
 - root cause analysis from logs/traces
 - recovery behavior after failure
 
-## Roadmap
-
-| Priority | Scenario | Failure Type | What It Proves | Expected Output |
-|---|---|---|---|---|
-| P1 | Watchdog reset caused by blocked worker loop | Runtime freeze / watchdog | Detecting loop blockage and explaining reset cause | Public autopsy |
-| P1 | Heartbeat loss between controllers | Communication / supervision fault | Peer monitoring and transition to degraded or fail-safe mode | Public autopsy |
-| P1 | CAN communication timeout | Bus / exchange failure | Timeout detection and deterministic reaction | Public autopsy |
-| P2 | Incoherent state between Worker A and Worker B | State disagreement | Cross-checking and mismatch handling | Public autopsy |
-| P2 | Unsafe recovery after restart | Recovery logic fault | Why recovery must be explicit and bounded | Public autopsy |
-| P3 | Missing logs prevent root cause analysis | Observability failure | Why instrumentation matters before failure happens | Methodology note |
-
 ## Scenario Template
 
 Each scenario should define:
