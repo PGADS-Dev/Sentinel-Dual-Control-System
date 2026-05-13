@@ -8,3 +8,5 @@ typedef enum {
 	SENTINEL_EVENT_FAULT_ESCALATED,
 	SENTINEL_EVENT_MANUAL_RESET
 } SentinelEvent;
+
+const char *sentinel_event_to_string(SentinelEvent event);

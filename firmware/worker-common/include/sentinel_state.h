@@ -4,3 +4,5 @@ typedef enum {
 	SENTINEL_STATE_DEGRADED,
 	SENTINEL_STATE_FAIL_SAFE
 } SentinelState;
+
+const char *sentinel_state_to_string(SentinelState state);
