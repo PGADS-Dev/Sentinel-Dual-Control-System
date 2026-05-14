@@ -1,3 +1,5 @@
+#pragma once
+
 typedef enum {
 	SENTINEL_STATE_INIT,
 	SENTINEL_STATE_NOMINAL,

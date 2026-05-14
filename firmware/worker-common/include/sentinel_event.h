@@ -1,3 +1,5 @@
+#pragma once
+
 typedef enum {
 	SENTINEL_EVENT_INVALID = 0,
 	SENTINEL_EVENT_STARTUP_COMPLETE,
