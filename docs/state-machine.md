@@ -75,14 +75,18 @@ Expected behavior:
 | Current state | Event | Next state | Reason |
 |---|---|---|---|
 | `INIT` | Startup complete and baseline checks valid | `NOMINAL` | System has enough valid information to operate |
-| `INIT` | Communication fault | `FAIL_SAFE` | Startup cannot establish required exchange |
+| `INIT` | Communication lost | `FAIL_SAFE` | Startup cannot establish required exchange |
+| `INIT` | Fault escalated | `FAIL_SAFE` | Startup detected an unsafe condition |
 | `NOMINAL` | Heartbeat warning | `DEGRADED` | Peer freshness is degraded but not yet fatal |
 | `NOMINAL` | Incoherent peer state | `DEGRADED` | Peer disagreement must be handled explicitly |
 | `NOMINAL` | Communication lost | `FAIL_SAFE` | Required exchange is no longer available |
+| `NOMINAL` | Fault escalated | `FAIL_SAFE` | Normal operation is no longer acceptable |
 | `DEGRADED` | Fault cleared | `NOMINAL` | The abnormal condition has been resolved |
 | `DEGRADED` | Fault escalated | `FAIL_SAFE` | Controlled degraded operation is no longer acceptable |
 | `DEGRADED` | Communication lost | `FAIL_SAFE` | Required exchange is no longer available |
 | `FAIL_SAFE` | Manual reset | `INIT` | Recovery must be explicit |
+
+All other events leave a valid current state unchanged. An unknown or invalid current state transitions to `FAIL_SAFE` for any event.
 
 ## Mermaid diagram
 
@@ -90,11 +94,13 @@ Expected behavior:
 stateDiagram-v2
     [*] --> INIT
     INIT --> NOMINAL: startup complete
-    INIT --> FAIL_SAFE: communication fault
+    INIT --> FAIL_SAFE: communication lost
+    INIT --> FAIL_SAFE: fault escalated
 
     NOMINAL --> DEGRADED: heartbeat warning
     NOMINAL --> DEGRADED: incoherent peer state
     NOMINAL --> FAIL_SAFE: communication lost
+    NOMINAL --> FAIL_SAFE: fault escalated
 
     DEGRADED --> NOMINAL: fault cleared
     DEGRADED --> FAIL_SAFE: fault escalated

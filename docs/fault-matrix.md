@@ -10,9 +10,9 @@ The goal is to avoid vague claims. Each fault must be explicit, reproducible, an
 
 | ID | Fault scenario | Detection signal | Expected state response | Observable trace | Demo method |
 |---|---|---|---|---|---|
-| F001 | Loss of heartbeat from one worker | Peer heartbeat not received before timeout | `NOMINAL` -> `DEGRADED`, then `FAIL_SAFE` if the condition escalates | `FAULT_HEARTBEAT_LOST`, peer node ID, timeout duration, state transition | Stop heartbeat emission from one worker or block its heartbeat messages |
-| F002 | Incoherent peer state or value | Peer state or reported value conflicts with local expectation | `NOMINAL` -> `DEGRADED` | `FAULT_STATE_MISMATCH`, local state, peer state, compared value | Force one worker to report an invalid or conflicting state/value |
-| F003 | Communication loss on CAN or equivalent exchange path | No valid exchange on CAN within the configured window | `NOMINAL` or `DEGRADED` -> `FAIL_SAFE` | `FAULT_COMMUNICATION_LOST`, bus status, last valid message timestamp | Disconnect or disable CAN exchange in a controlled way |
+| F001 | Loss of heartbeat from one worker | Peer heartbeat not received before timeout | `NOMINAL` -> `DEGRADED`, then `FAIL_SAFE` if the fault escalates | `SENTINEL_FAULT_HEARTBEAT_LOST`, peer node ID, timeout duration, state transition | Stop heartbeat emission from one worker or block its heartbeat messages |
+| F002 | Incoherent peer state | Peer state conflicts with local expectation | `NOMINAL` -> `DEGRADED` | `SENTINEL_FAULT_INCOHERENT_PEER_STATE`, local state, peer state | Force one worker to report an invalid or conflicting state |
+| F003 | Communication loss on CAN or equivalent exchange path | No valid exchange on CAN within the configured window | `INIT`, `NOMINAL`, or `DEGRADED` -> `FAIL_SAFE` | `SENTINEL_FAULT_COMMUNICATION_LOST`, bus status, last valid message timestamp | Disconnect or disable CAN exchange in a controlled way |
 
 ## Expected fault handling principles
 
@@ -34,9 +34,9 @@ A short heartbeat warning may enter `DEGRADED` if the system still has enough in
 
 A prolonged heartbeat loss must escalate to `FAIL_SAFE`.
 
-### Incoherent peer state or value
+### Incoherent peer state
 
-Incoherent peer state means the two workers disagree about the system state or an important reported value.
+Incoherent peer state means the two workers disagree about the system state.
 
 This is abnormal because the system can no longer assume both workers share the same view of reality.
 

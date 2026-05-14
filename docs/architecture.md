@@ -45,7 +45,7 @@ Each STM32 worker is responsible for:
 - publishing health or status information
 - monitoring peer heartbeat freshness
 - detecting peer silence
-- detecting incoherent peer state or value
+- detecting incoherent peer state
 - reacting through deterministic state transitions
 - exposing its state and fault information to the supervisor path
 

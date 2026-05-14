@@ -315,7 +315,7 @@ Each worker implements the same core modules:
   * Reset reason capture
   * Basic sanity checks (clock, critical peripherals)
   * Initialize event log ring buffer
-  * Enter SAFE state by default
+  * Enter `INIT` with outputs disabled by default
 
 * **Control loop**
 
@@ -439,14 +439,14 @@ Gateway:
 
 Every worker uses the same high-level FSM:
 
-* `BOOT`
-* `SAFE` (default)
-* `ARMING` (checks, peer sync, timing stable)
-* `ARMED` (output allowed, strict monitoring)
-* `DEGRADED` (still safe output behavior, but logs availability loss)
-* `FAULT_LATCHED` (requires reset or explicit recovery policy)
+* `INIT`
+* `NOMINAL`
+* `DEGRADED`
+* `FAIL_SAFE`
 
-Document the exact transitions in `docs/safety_model.md`.
+The current v0.1 proof scope uses only these four states. Older or future modes such as `BOOT`, `SAFE`, `ARMING`, `ARMED`, and `FAULT_LATCHED` are not part of the v0.1 worker state machine.
+
+Document the exact transitions in `docs/state-machine.md`.
 
 ### Fault detection rules
 
@@ -454,7 +454,7 @@ A non-exhaustive set:
 
 * Missed peer heartbeats beyond threshold
 * Peer sequence counter regression or stalls
-* Mode disagreement (A says ARMED, B says SAFE)
+* Incoherent peer state between Worker A and Worker B
 * Local loop time overrun
 * Watchdog near-miss counters
 * Brownout or reset anomaly
@@ -466,8 +466,8 @@ Default output policy:
 
 * Output enable is **asserted only** when:
 
-  * local FSM is ARMED
-  * peer is ARMED
+  * local FSM is `NOMINAL`
+  * peer state is coherent with `NOMINAL`
   * no faults latched
   * timing health is good
 * Otherwise output is OFF
@@ -562,8 +562,8 @@ Gateway:
 1. Wire the CAN bus and verify termination.
 2. Flash Worker A and Worker B firmware.
 3. Bring up Raspberry Pi gateway and verify it sees CAN traffic.
-4. Run baseline: no faults, stable ARMED.
-5. Trigger fault injection and verify it returns to SAFE and logs evidence.
+4. Run baseline: no faults, stable `NOMINAL`.
+5. Trigger fault injection and verify the documented `DEGRADED` or `FAIL_SAFE` transition and logged evidence.
 
 ### Firmware build and flash
 
@@ -624,10 +624,10 @@ We test at four levels:
 
 The MVP is accepted when:
 
-* Both workers boot into SAFE by default.
+* Both workers start in `INIT` with outputs disabled by default.
 * Both workers produce heartbeat and status frames at stable rates.
-* System arms only when both are healthy and consistent.
-* Any injected fault forces SAFE state within the defined bound.
+* System enters `NOMINAL` only when both are healthy and consistent.
+* Mandatory injected faults follow the documented `DEGRADED` or `FAIL_SAFE` transition paths within the defined bound.
 * Gateway produces a report showing:
 
   * timestamps

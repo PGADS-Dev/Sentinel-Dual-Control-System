@@ -42,7 +42,7 @@ Each scenario should define:
 |----------|----------|--------------|----------------|---------------|
 | P1 | Watchdog reset caused by blocked worker loop | Runtime freeze / watchdog | The system can detect blocked execution and explain the reset cause | Crash autopsy |
 | P1 | Heartbeat loss between controllers | Supervision fault | The system can detect peer silence and transition intentionally | Crash autopsy |
-| P1 | CAN communication timeout | Communication fault | The system reacts deterministically to loss of exchange | Crash autopsy |
+| P1 | CAN communication timeout | Communication lost | The system reacts deterministically to loss of exchange | Crash autopsy |
 | P1 | Incoherent state between Worker A and Worker B | State disagreement | Cross-monitoring detects unsafe inconsistency | Crash autopsy |
 | P2 | Unsafe recovery after restart | Recovery logic fault | Recovery must be explicit, bounded, and observable | Crash autopsy |
 | P2 | Watchdog reset without useful logs | Observability failure | Missing evidence makes root cause analysis weaker | Methodology note |
