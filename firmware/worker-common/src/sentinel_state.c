@@ -1,5 +1,4 @@
 #include "sentinel_state.h"
-#include "sentinel_event.h"
 #include "sentinel_fault.h"
 
 const char* sentinel_state_to_string(SentinelState state) {
