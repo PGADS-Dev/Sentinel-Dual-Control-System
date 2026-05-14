@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SENTINEL_FAULT_H
+#define SENTINEL_FAULT_H
 
 typedef enum {
 	SENTINEL_FAULT_HEARTBEAT_LOST,
@@ -7,3 +8,5 @@ typedef enum {
 } SentinelFault;
 
 const char *sentinel_fault_to_string(SentinelFault fault);
+
+#endif // !SENTINEL_FAULT_H

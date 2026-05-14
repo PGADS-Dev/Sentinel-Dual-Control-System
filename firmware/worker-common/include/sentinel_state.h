@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SENTINEL_STATE_H
+#define SENTINEL_STATE_H
 
 typedef enum {
 	SENTINEL_STATE_INIT,
@@ -8,3 +9,5 @@ typedef enum {
 } SentinelState;
 
 const char *sentinel_state_to_string(SentinelState state);
+
+#endif // !SENTINEL_STATE_H

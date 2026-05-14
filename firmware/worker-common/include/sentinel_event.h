@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SENTINEL_EVENT_H
+#define SENTINEL_EVENT_H
 
 typedef enum {
 	SENTINEL_EVENT_INVALID = 0,
@@ -12,3 +13,5 @@ typedef enum {
 } SentinelEvent;
 
 const char *sentinel_event_to_string(SentinelEvent event);
+
+#endif // !SENTINEL_EVENT_H
