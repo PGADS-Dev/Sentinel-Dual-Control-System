@@ -48,12 +48,12 @@ Example future log shape:
 
 The future supervisor simulation will help demonstrate that Sentinel v0.1 can:
 
-* show normal operation
-* show degraded-mode entry
-* show fail-safe entry
-* show fault detection
-* show state transitions clearly
-* provide trace evidence for review
+- show normal operation
+- show degraded-mode entry
+- show fail-safe entry
+- show fault detection
+- show state transitions clearly
+- provide trace evidence for review
 
 The goal is not to build a dashboard.
 
@@ -63,14 +63,14 @@ The goal is to produce simple, readable, timestamped evidence of system behavior
 
 For Sentinel v0.1, this directory does not include:
 
-* a complete supervisor implementation
-* a dashboard
-* a web interface
-* a database
-* a systemd service
-* a full Raspberry Pi deployment
-* advanced trace tooling
-* cloud connectivity
+- a complete supervisor implementation
+- a dashboard
+- a web interface
+- a database
+- a systemd service
+- a full Raspberry Pi deployment
+- advanced trace tooling
+- cloud connectivity
 
 These may be considered later if they strengthen the proof, but they are not required for the v0.1 skeleton.
 
