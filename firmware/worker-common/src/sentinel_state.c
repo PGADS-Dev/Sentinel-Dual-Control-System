@@ -57,7 +57,7 @@ SentinelState sentinel_next_state(SentinelState current, SentinelEvent event) {
 	case SENTINEL_STATE_INIT:
 		if (event == SENTINEL_EVENT_STARTUP_COMPLETE) {
 			return SENTINEL_STATE_NOMINAL;
-		} else if (event == SENTINEL_EVENT_COMMUNICATION_LOST) {
+		} else if (event == SENTINEL_EVENT_COMMUNICATION_LOST || event == SENTINEL_EVENT_FAULT_ESCALATED) {
 			return SENTINEL_STATE_FAIL_SAFE;
 		}
 		return SENTINEL_STATE_INIT;
