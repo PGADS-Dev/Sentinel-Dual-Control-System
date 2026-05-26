@@ -1,14 +1,18 @@
 # Sentinel Dual-Control System
 
-A safety-inspired, redundant embedded control platform designed to demonstrate **reliability engineering**, **fault tolerance**, **deterministic control**, **crash forensics**, and **system-level thinking** on real hardware.
+A safety-inspired, redundant embedded control platform intended to demonstrate **reliability engineering**, **fault tolerance**, **deterministic control**, **crash forensics**, and **system-level thinking** on real hardware.
 
-This project is intentionally built like a “mini critical system” found in automotive, aerospace, and industrial equipment: multiple controllers, strict supervision rules, well-defined degraded modes, fault injection, and a blackbox-style logging pipeline.
+This project is intended to grow into a “mini critical system” like those found in automotive, aerospace, and industrial equipment: multiple controllers, strict supervision rules, well-defined degraded modes, fault injection, and a blackbox-style logging pipeline.
+
+**Current status:** Sentinel is currently in v0.1 skeleton stage. The current proof focuses on the worker state machine, explicit fault events, deterministic transitions, and documentation alignment. The larger dual-controller hardware platform remains the roadmap direction, not the current implementation.
 
 ---
 
 ## Table of Contents
 
 - [Why this exists](#why-this-exists)
+- [Sentinel v0.1 current proof](#sentinel-v01-current-proof)
+- [Current proof vs future roadmap](#current-proof-vs-future-roadmap)
 - [What the system does](#what-the-system-does)
 - [Core principles](#core-principles)
 - [System architecture](#system-architecture)
@@ -30,7 +34,7 @@ This project is intentionally built like a “mini critical system” found in a
   - [Fault detection rules](#fault-detection-rules)
   - [Fail-safe outputs](#fail-safe-outputs)
 - [Fault injection](#fault-injection)
-  - [Faults we support](#faults-we-support)
+  - [Planned faults](#planned-faults)
   - [How to run fault campaigns](#how-to-run-fault-campaigns)
 - [Logging and crash forensics](#logging-and-crash-forensics)
   - [Blackbox event model](#blackbox-event-model)
@@ -51,25 +55,73 @@ This project is intentionally built like a “mini critical system” found in a
 
 Most portfolios show features. This project shows **responsibility**.
 
-Sentinel is built to prove we can:
+Sentinel is built to progressively prove we can:
 - Design a system that detects failures, isolates them, and enters safe states predictably.
 - Build deterministic firmware (bounded execution, watchdog discipline, timer-driven loops).
-- Structure a fault-tolerant architecture (redundancy, supervision, voting).
-- Capture and explain failures with a blackbox logging pipeline (crash forensics).
-- Run fault campaigns (repeatable, measurable tests, not “it seems stable”).
+- Structure a future fault-tolerant architecture (redundancy, supervision, voting).
+- Capture and explain failures with a planned blackbox logging pipeline (crash forensics).
+- Run future fault campaigns (repeatable, measurable tests, not “it seems stable”).
+
+---
+
+## Sentinel v0.1 current proof
+
+Sentinel v0.1 is intentionally narrow. It proves the core worker behavior before hardware integration, CAN transport, gateway services, or richer crash tooling are added.
+
+The current proof covers:
+
+- explicit operating states: `INIT`, `NOMINAL`, `DEGRADED`, and `FAIL_SAFE`
+- defined faults: `HEARTBEAT_LOST`, `COMMUNICATION_LOST`, and `INCOHERENT_PEER_STATE`
+- defined events, including `STARTUP_COMPLETE`, `HEARTBEAT_WARNING`, `COMMUNICATION_LOST`, `INCOHERENT_PEER_STATE`, `FAULT_CLEARED`, `FAULT_ESCALATED`, and `MANUAL_RESET`
+- deterministic state transitions through a shared transition function
+- intentional `DEGRADED` entry for recoverable or warning-level fault paths
+- explicit `FAIL_SAFE` entry for escalated or safety-critical fault paths
+- future observability through logs and traces, documented before full implementation
+
+Current v0.1 reference documents:
+
+- [v0.1 scope](docs/v0.1-scope.md)
+- [state machine](docs/state-machine.md)
+- [fault matrix](docs/fault-matrix.md)
+- [observability](docs/observability.md)
+- [supervisor simulation placeholder](gateway/supervisor-sim/README.md)
+
+---
+
+## Current proof vs future roadmap
+
+Current v0.1 proof:
+
+- worker state definitions
+- event definitions
+- fault definitions
+- deterministic transition function
+- v0.1 documentation alignment
+- documentation for scope, architecture, state machine, fault matrix, and observability
+- supervisor simulation placeholder
+
+Future roadmap:
+
+- full STM32 worker integration
+- CAN communication implementation
+- Raspberry Pi supervisor implementation
+- hardware fault injection
+- blackbox-style trace capture
+- reproducible demo sequence
+- richer postmortem tooling
 
 ---
 
 ## What the system does
 
-Sentinel is a **dual-controller** platform where two independent microcontrollers (“Worker A” and “Worker B”) run the same control logic and continuously cross-check each other.
+Sentinel targets a **dual-controller** platform where two independent microcontrollers (“Worker A” and “Worker B”) run the same control logic and continuously cross-check each other.
 
-A Raspberry Pi acts as:
+The future Raspberry Pi gateway is intended to act as:
 - Supervisor (health monitoring)
 - Logger (blackbox recorder)
-- Integration hub (data export, dashboards, scripts, test harness)
+- Integration hub (data export, scripts, test harness)
 
-The system drives a “safety output” (an **Enable** line, relay, or actuator simulation) only if strict rules are satisfied.
+The target system drives a “safety output” (an **Enable** line, relay, or actuator simulation) only if strict rules are satisfied. This hardware behavior is not part of the current v0.1 skeleton.
 
 ---
 
@@ -89,12 +141,14 @@ The system drives a “safety output” (an **Enable** line, relay, or actuator 
    - Safe state means outputs disabled and latched until recovery policy allows re-arming
 
 4. **Observable truth**
-   - Every relevant event becomes a timestamped record
-   - Fault injection produces traceable evidence
+   - Every relevant event should become a timestamped record
+   - Planned fault injection should produce traceable evidence
 
 ---
 
 ## System architecture
+
+This section describes the target architecture for the larger Sentinel platform. It is roadmap-level context, not a claim that the current v0.1 skeleton implements the full hardware system.
 
 ### High-level block diagram
 
@@ -145,11 +199,13 @@ flowchart LR
   F1 -.injected fault.-> WKB
   F1 -.injected fault.-> BUS
   F1 -.injected fault.-> OUT
-````
+```
 
 ### Roles of each node
 
 #### Worker A (STM32)
+
+Target role:
 
 * Runs the control loop and the safety state machine.
 * Publishes:
@@ -164,9 +220,11 @@ flowchart LR
 
 #### Worker B (STM32)
 
-Same as Worker A. It must be able to keep the system safe even if A is compromised.
+Target role is the same as Worker A. It must be able to keep the future system safe even if A is compromised.
 
 #### Gateway (Raspberry Pi)
+
+Future intended role:
 
 * Passive monitoring by default (never required for safety).
 * Collects all frames and builds a timeline.
@@ -196,6 +254,8 @@ Optional model (future): **1oo2 with strict supervision**
 
 ## Hardware
 
+Hardware integration is part of the roadmap and is not part of the current v0.1 skeleton.
+
 ### Bill of materials
 
 Minimum target configuration:
@@ -220,7 +280,7 @@ Minimum target configuration:
   * Logic analyzer (for timing and bus verification)
   * USB-CAN adapter (for PC capture and sanity checks)
 
-Optional expansions (explicitly not required for MVP):
+Optional expansions (explicitly not required for the future hardware demo):
 
 * Sensors (temperature, presence, etc.)
 * External safety output stage (relay driver, MOSFET, isolated IO)
@@ -236,7 +296,7 @@ Recommended approach for clarity and reproducibility:
   * Relay module
 * Workers powered via:
 
-  * Nucleo USB (simplest for MVP), or
+  * Nucleo USB (simplest for the future hardware demo), or
   * a shared regulated 5V rail if you want to demonstrate power domain coupling and brownout behavior
 
 Safety note:
@@ -277,6 +337,8 @@ Exact pin numbers depend on your chosen boards and CAN interface. Keep them in `
 
 This repo is structured to keep firmware, gateway, tooling, and documentation cleanly separated.
 
+Target layout:
+
 ```text
 .
 ├─ docs/
@@ -308,14 +370,16 @@ This repo is structured to keep firmware, gateway, tooling, and documentation cl
 
 ### Firmware behavior (STM32 Workers)
 
-Each worker implements the same core modules:
+This section describes the intended STM32 worker behavior. The current v0.1 proof covers the common state, event, fault, and transition definitions rather than full board integration.
+
+Each future worker implements the same core modules:
 
 * **Boot and self-test**
 
   * Reset reason capture
   * Basic sanity checks (clock, critical peripherals)
   * Initialize event log ring buffer
-  * Enter SAFE state by default
+  * Enter `INIT` with outputs disabled by default
 
 * **Control loop**
 
@@ -353,7 +417,7 @@ Keep them defined in one place:
 
 ### Gateway behavior (Raspberry Pi)
 
-The gateway is designed as a set of services:
+The future gateway is intended as a set of services:
 
 * `sentinel-can-listener`
 
@@ -388,7 +452,7 @@ All gateway processes must:
 
 ### Communication protocols
 
-CAN frames must be documented and stable.
+CAN communication is planned roadmap work. Future CAN frames must be documented and stable.
 
 A recommended frame set:
 
@@ -420,13 +484,13 @@ Define IDs and payloads in:
 
 ### Time, determinism, and scheduling
 
-Workers:
+Future workers:
 
 * No dynamic allocation in the control loop
 * No unbounded I/O in the control loop
 * Any logging in loop uses ring buffer and deferred flushing if needed
 
-Gateway:
+Future gateway:
 
 * CAN ingestion is single responsibility
 * Heavy processing happens offline or in separate processes
@@ -439,22 +503,22 @@ Gateway:
 
 Every worker uses the same high-level FSM:
 
-* `BOOT`
-* `SAFE` (default)
-* `ARMING` (checks, peer sync, timing stable)
-* `ARMED` (output allowed, strict monitoring)
-* `DEGRADED` (still safe output behavior, but logs availability loss)
-* `FAULT_LATCHED` (requires reset or explicit recovery policy)
+* `INIT`
+* `NOMINAL`
+* `DEGRADED`
+* `FAIL_SAFE`
 
-Document the exact transitions in `docs/safety_model.md`.
+The current v0.1 proof scope uses only these four states. Older or future modes such as `BOOT`, `SAFE`, `ARMING`, `ARMED`, and `FAULT_LATCHED` are not part of the v0.1 worker state machine.
+
+Document the exact transitions in `docs/state-machine.md`.
 
 ### Fault detection rules
 
-A non-exhaustive set:
+The current v0.1 fault set is documented in `docs/fault-matrix.md`. The target platform may add detection rules such as:
 
 * Missed peer heartbeats beyond threshold
 * Peer sequence counter regression or stalls
-* Mode disagreement (A says ARMED, B says SAFE)
+* Incoherent peer state between Worker A and Worker B
 * Local loop time overrun
 * Watchdog near-miss counters
 * Brownout or reset anomaly
@@ -462,12 +526,12 @@ A non-exhaustive set:
 
 ### Fail-safe outputs
 
-Default output policy:
+Target output policy:
 
 * Output enable is **asserted only** when:
 
-  * local FSM is ARMED
-  * peer is ARMED
+  * local FSM is `NOMINAL`
+  * peer state is coherent with `NOMINAL`
   * no faults latched
   * timing health is good
 * Otherwise output is OFF
@@ -476,9 +540,11 @@ Default output policy:
 
 ## Fault injection
 
-### Faults we support
+Physical fault injection is roadmap-level work and is not part of the current v0.1 skeleton.
 
-Fault injection is a first-class feature, not an afterthought.
+### Planned faults
+
+Fault injection is intended to be a first-class feature, not an afterthought.
 
 Examples:
 
@@ -490,7 +556,7 @@ Examples:
 
 ### How to run fault campaigns
 
-A “campaign” is:
+A future “campaign” is:
 
 * a scripted sequence of injected faults
 * with expected outcomes
@@ -504,9 +570,11 @@ See:
 
 ## Logging and crash forensics
 
+The current v0.1 proof documents future observability expectations. Full blackbox-style trace capture and richer postmortem tooling are roadmap items.
+
 ### Blackbox event model
 
-We aim for logs that answer:
+The target logging model should answer:
 
 * What happened
 * In what order
@@ -516,7 +584,7 @@ We aim for logs that answer:
 
 ### What gets logged
 
-Gateway logs:
+Future gateway logs:
 
 * Every CAN frame with timestamp
 * Derived events:
@@ -525,13 +593,13 @@ Gateway logs:
   * “Vote mismatch”
   * “System disarmed due to rule X”
 
-Workers log locally (ring buffer):
+Future workers log locally (ring buffer):
 
 * State transitions
 * Fault latches and reasons
 * Timing overruns
 
-Export formats:
+Planned export formats:
 
 * Raw binary log (fast, compact)
 * JSON event timeline (human-readable)
@@ -540,6 +608,8 @@ Export formats:
 ---
 
 ## Build, flash, and run
+
+These steps describe the intended hardware demo workflow. They are not part of the current v0.1 skeleton proof.
 
 ### Prerequisites
 
@@ -554,16 +624,17 @@ Gateway:
 
 * Raspberry Pi OS Lite
 * CAN interface drivers (MCP2515 over SPI or USB-CAN)
-* `systemd` for services
 * Python or C++ runtime depending on gateway implementation
 
 ### Quick start
 
+Planned hardware demo flow:
+
 1. Wire the CAN bus and verify termination.
 2. Flash Worker A and Worker B firmware.
 3. Bring up Raspberry Pi gateway and verify it sees CAN traffic.
-4. Run baseline: no faults, stable ARMED.
-5. Trigger fault injection and verify it returns to SAFE and logs evidence.
+4. Run baseline: no faults, stable `NOMINAL`.
+5. Trigger fault injection and verify the documented `DEGRADED` or `FAIL_SAFE` transition and logged evidence.
 
 ### Firmware build and flash
 
@@ -583,16 +654,18 @@ Repeat for Worker B.
 
 ### Gateway setup
 
+Future Raspberry Pi gateway setup:
+
 1. Enable required interfaces (depends on CAN hardware)
 
    * SPI if using MCP2515
 2. Bring up CAN network interface
 
    * `ip link set can0 up type can bitrate 500000`
-3. Start services
+3. Start gateway processes using the selected service runner
 
-   * `systemctl enable --now sentinel-can-listener`
-   * `systemctl enable --now sentinel-supervisor`
+   * `sentinel-can-listener`
+   * `sentinel-supervisor`
 4. Validate ingestion
 
    * check logs directory
@@ -602,7 +675,7 @@ Repeat for Worker B.
 
 ## Testing strategy
 
-We test at four levels:
+The current v0.1 proof is centered on deterministic worker state-machine behavior. The broader project is intended to test at four levels:
 
 1. **Unit tests**
 
@@ -622,12 +695,12 @@ We test at four levels:
 
 ## Acceptance criteria
 
-The MVP is accepted when:
+The future hardware demonstrator will be considered acceptable when:
 
-* Both workers boot into SAFE by default.
+* Both workers start in `INIT` with outputs disabled by default.
 * Both workers produce heartbeat and status frames at stable rates.
-* System arms only when both are healthy and consistent.
-* Any injected fault forces SAFE state within the defined bound.
+* System enters `NOMINAL` only when both are healthy and consistent.
+* Mandatory injected faults follow the documented `DEGRADED` or `FAIL_SAFE` transition paths within the defined bound.
 * Gateway produces a report showing:
 
   * timestamps
@@ -650,7 +723,6 @@ Near-term:
 Mid-term:
 
 * Add optional 1oo2 availability mode (with explicit hazard analysis)
-* Add a small HMI dashboard (local or remote) to visualize states and faults
 * Add hardware PCB for clean wiring and repeatable demo setup
 
 Long-term:
