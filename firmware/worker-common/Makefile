@@ -8,7 +8,7 @@ OBJ_DIR := $(BUILD_DIR)/obj
 
 TARGET := $(BUILD_DIR)/sentinel_worker_test
 
-CFLAGS := -std=c11 -Wall -Wextra -Wpedantic -I$(INC_DIR)
+CFLAGS := -std=c11 -Wall -Wextra -Werror -Wpedantic -I$(INC_DIR)
 
 RM := rm -rf
 
@@ -26,7 +26,8 @@ all: $(OBJ)
 run: $(TARGET)
 	./$(TARGET)
 
-test: $(TARGET) $(TESTS)
+test: $(TARGET)
+	./$(TARGET)
 
 $(TARGET): $(OBJ) $(TESTS_OBJ)
 	mkdir -p $(BUILD_DIR)
@@ -48,4 +49,4 @@ clean:
 
 re: clean all
 
-.PHONY: all run clean re
+.PHONY: all run test clean re
