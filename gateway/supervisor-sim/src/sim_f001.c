@@ -36,13 +36,28 @@ SentinelState apply_and_trace(uint32_t timestamp_ms, const char* worker_id, Sent
 }
 
 int main() {
-	const char worker_a = 'a';
-	const char worker_b = 'b';
-	apply_and_trace(timeInMilliseconds(), &worker_a, SENTINEL_STATE_INIT, SENTINEL_EVENT_STARTUP_COMPLETE);
-	apply_and_trace(timeInMilliseconds(), &worker_b, SENTINEL_STATE_INIT, SENTINEL_EVENT_STARTUP_COMPLETE);
-	sleep(2);
-	apply_and_trace(timeInMilliseconds(), &worker_a, SENTINEL_STATE_NOMINAL, SENTINEL_EVENT_HEARTBEAT_WARNING);
+	const char worker_id = 'a';
+	SentinelState worker_state = SENTINEL_STATE_INIT;
 	sleep(1);
-	apply_and_trace(timeInMilliseconds(), &worker_a, SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_FAULT_CLEARED);
+	worker_state = apply_and_trace(
+		timeInMilliseconds(),
+		&worker_id,
+		worker_state,
+		SENTINEL_EVENT_STARTUP_COMPLETE
+	);
+	sleep(3);
+	worker_state = apply_and_trace(
+		timeInMilliseconds(),
+		&worker_id,
+		worker_state,
+		SENTINEL_EVENT_HEARTBEAT_WARNING
+	);
+	sleep(1);
+	worker_state = apply_and_trace(
+		timeInMilliseconds(),
+		&worker_id,
+		worker_state,
+		SENTINEL_EVENT_FAULT_ESCALATED
+	);
 	return 0;
 }
