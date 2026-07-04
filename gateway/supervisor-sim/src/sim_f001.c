@@ -39,25 +39,10 @@ int main() {
 	const char worker_id = 'a';
 	SentinelState worker_state = SENTINEL_STATE_INIT;
 	sleep(1);
-	worker_state = apply_and_trace(
-		timeInMilliseconds(),
-		&worker_id,
-		worker_state,
-		SENTINEL_EVENT_STARTUP_COMPLETE
-	);
+	worker_state = apply_and_trace(timeInMilliseconds(), &worker_id, worker_state, SENTINEL_EVENT_STARTUP_COMPLETE);
 	sleep(3);
-	worker_state = apply_and_trace(
-		timeInMilliseconds(),
-		&worker_id,
-		worker_state,
-		SENTINEL_EVENT_HEARTBEAT_WARNING
-	);
+	worker_state = apply_and_trace(timeInMilliseconds(), &worker_id, worker_state, SENTINEL_EVENT_HEARTBEAT_WARNING);
 	sleep(1);
-	worker_state = apply_and_trace(
-		timeInMilliseconds(),
-		&worker_id,
-		worker_state,
-		SENTINEL_EVENT_FAULT_ESCALATED
-	);
+	worker_state = apply_and_trace(timeInMilliseconds(), &worker_id, worker_state, SENTINEL_EVENT_FAULT_ESCALATED);
 	return 0;
 }
