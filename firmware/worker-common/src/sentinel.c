@@ -4,13 +4,15 @@
 #include <assert.h>
 #include <stddef.h>
 
-void sentinel_reset_flags(struct Sentinel *sentinel) {
+static void sentinel_reset_flags(struct Sentinel *sentinel) {
+	assert(sentinel != NULL);
 	sentinel->heartbeat_recovered = false;
 	sentinel->value_recovered = false;
 	sentinel->comm_recovered = false;
 }
 
 void sentinel_apply_event(struct Sentinel *sentinel, SentinelEvent event) {
+	assert(sentinel != NULL);
 	SentinelState old_state = sentinel->state;
 
 	if (old_state == SENTINEL_STATE_DEGRADED) {
