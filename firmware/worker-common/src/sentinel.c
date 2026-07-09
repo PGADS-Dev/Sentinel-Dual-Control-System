@@ -1,6 +1,8 @@
 #include "sentinel.h"
 #include "sentinel_event.h"
 #include "sentinel_state.h"
+#include <assert.h>
+#include <stdlib.h>
 
 void sentinel_reset_flags(struct Sentinel *sentinel) {
 	sentinel->heartbeat_recovered = false;
@@ -40,6 +42,8 @@ void sentinel_apply_event(struct Sentinel *sentinel, SentinelEvent event) {
 }
 
 void sentinel_init(struct Sentinel *sentinel) {
+	assert(sentinel != NULL);
+
 	sentinel->state = SENTINEL_STATE_INIT;
 	sentinel_reset_flags(sentinel);
 }
