@@ -57,11 +57,10 @@ static int assert_state(const struct Sentinel *sentinel, SentinelState expected)
  * - UNKNOWN_STATE	+ UNKNOWN_EVENT			-> FAIL_SAFE
  */
 int main(void) {
-	int passed = 0;
 	struct Sentinel sentinel;
 
 	sentinel_init(&sentinel);
-	passed += assert_state(&sentinel, SENTINEL_STATE_INIT);
+	assert_state(&sentinel, SENTINEL_STATE_INIT);
 
 	assert_transition(SENTINEL_STATE_INIT, SENTINEL_EVENT_SYSTEM_START, SENTINEL_STATE_NOMINAL);
 
@@ -114,6 +113,29 @@ int main(void) {
 	sentinel_apply_event(&sentinel, SENTINEL_EVENT_VALUE_OK);
 	sentinel_apply_event(&sentinel, SENTINEL_EVENT_COMM_OK);
 	assert_state(&sentinel, SENTINEL_STATE_NOMINAL);
+
+	sentinel_init(&sentinel);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_SYSTEM_START);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	assert_state(&sentinel, SENTINEL_STATE_FAIL_SAFE);
+
+	// This test is just to prove that the Fail Safe stay locked
+	sentinel_init(&sentinel);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_SYSTEM_START);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_OK);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_VALUE_OK);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_COMM_OK);
+	assert_state(&sentinel, SENTINEL_STATE_FAIL_SAFE);
+
+	sentinel_init(&sentinel);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_SYSTEM_START);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_RESET_REQUESTED);
+	assert_state(&sentinel, SENTINEL_STATE_INIT);
 
 	puts("All Sentinel state machine tests passed.");
 
