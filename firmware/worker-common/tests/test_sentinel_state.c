@@ -1,3 +1,4 @@
+#include "sentinel.h"
 #include "sentinel_event.h"
 #include "sentinel_state.h"
 #include <stdio.h>
@@ -6,56 +7,113 @@ static int assert_transition(SentinelState current, SentinelEvent event, Sentine
 	SentinelState actual = sentinel_next_state(current, event);
 
 	if (actual != expected) {
-		fprintf(stderr, "FAIL: %s + %s -> expected %s, got %s\n", sentinel_state_to_string(current),
+		fprintf(stderr, "[FAIL]: %s + %s -> expected %s, got %s\n", sentinel_state_to_string(current),
 		        sentinel_event_to_string(event), sentinel_state_to_string(expected), sentinel_state_to_string(actual));
 		return 1;
 	}
 
+	fprintf(stdout, "[SUCCEED]: %s + %s -> expected %s\n", sentinel_state_to_string(current),
+	        sentinel_event_to_string(event), sentinel_state_to_string(expected));
+	return 0;
+}
+
+static int assert_state(const struct Sentinel *sentinel, SentinelState expected) {
+	SentinelState actual = sentinel_get_state(sentinel);
+	SentinelState current = sentinel->state;
+
+	if (actual != expected) {
+		fprintf(stderr, "[FAIL]: %s -> expected %s, got %s\n", sentinel_state_to_string(current),
+		        sentinel_state_to_string(expected), sentinel_state_to_string(actual));
+		return 1;
+	}
+
+	fprintf(stdout, "[SUCCEED]: %s -> expected %s\n", sentinel_state_to_string(current),
+	        sentinel_state_to_string(expected));
 	return 0;
 }
 
 /**
  * Sentinel state machine transitions covered:
- * - INIT + STARTUP_COMPLETE -> NOMINAL
- * - INIT + COMMUNICATION_LOST -> FAIL_SAFE
- * - INIT + FAULT_ESCALATED -> FAIL_SAFE
+ * - INIT			+ SYSTEM_START			-> NOMINAL
  *
- * - NOMINAL + HEARTBEAT_WARNING -> DEGRADED
- * - NOMINAL + INCOHERENT_PEER_STATE -> DEGRADED
- * - NOMINAL + COMMUNICATION_LOST -> FAIL_SAFE
- * - NOMINAL + FAULT_ESCALATED -> FAIL_SAFE
+ * - NOMINAL		+ HEARTBEAT_TIMEOUT		-> DEGRADED
+ * - NOMINAL		+ VALUE_INCONSISTENT	-> DEGRADED
+ * - NOMINAL		+ COMM_LOST				-> DEGRADED
  *
- * - DEGRADED + FAULT_CLEARED -> NOMINAL
- * - DEGRADED + COMMUNICATION_LOST -> FAIL_SAFE
- * - DEGRADED + FAULT_ESCALATED -> FAIL_SAFE
+ * - DEGRADED		+ HEARTBEAT_TIMEOUT		-> FAIL_SAFE
+ * - DEGRADED		+ VALUE_INCONSISTENT	-> FAIL_SAFE
+ * - DEGRADED		+ COMM_LOST				-> FAIL_SAFE
  *
- * - FAIL_SAFE + MANUAL_RESET -> INIT
- * - UNKNOWN_STATE + STARTUP_COMPLETE -> FAIL_SAFE
+ * - DEGRADED		+ HEARTBEAT_OK			-> DEGRADED
+ * - DEGRADED		+ VALUE_OK				-> DEGRADED
+ * - DEGRADED		+ COMM_OK				-> DEGRADED
+ *
+ * - FAIL_SAFE		+ RESET_REQUESTED		-> INIT
+ * - FAIL_SAFE		+ HEARTBEAT_OK			-> FAIL_SAFE
+ * - FAIL_SAFE		+ VALUE_OK				-> FAIL_SAFE
+ * - FAIL_SAFE		+ COMM_OK				-> FAIL_SAFE
+ *
+ * - UNKNOWN_STATE	+ HEARTBEAT_OK			-> FAIL_SAFE
+ * - UNKNOWN_STATE	+ UNKNOWN_EVENT			-> FAIL_SAFE
  */
 int main(void) {
-	int fails = 0;
+	int passed = 0;
+	struct Sentinel sentinel;
 
-	fails += assert_transition(SENTINEL_STATE_INIT, SENTINEL_EVENT_STARTUP_COMPLETE, SENTINEL_STATE_NOMINAL);
-	fails += assert_transition(SENTINEL_STATE_INIT, SENTINEL_EVENT_COMMUNICATION_LOST, SENTINEL_STATE_FAIL_SAFE);
-	fails += assert_transition(SENTINEL_STATE_INIT, SENTINEL_EVENT_FAULT_ESCALATED, SENTINEL_STATE_FAIL_SAFE);
+	sentinel_init(&sentinel);
+	passed += assert_state(&sentinel, SENTINEL_STATE_INIT);
 
-	fails += assert_transition(SENTINEL_STATE_NOMINAL, SENTINEL_EVENT_HEARTBEAT_WARNING, SENTINEL_STATE_DEGRADED);
-	fails += assert_transition(SENTINEL_STATE_NOMINAL, SENTINEL_EVENT_INCOHERENT_PEER_STATE, SENTINEL_STATE_DEGRADED);
-	fails += assert_transition(SENTINEL_STATE_NOMINAL, SENTINEL_EVENT_COMMUNICATION_LOST, SENTINEL_STATE_FAIL_SAFE);
-	fails += assert_transition(SENTINEL_STATE_NOMINAL, SENTINEL_EVENT_FAULT_ESCALATED, SENTINEL_STATE_FAIL_SAFE);
+	assert_transition(SENTINEL_STATE_INIT, SENTINEL_EVENT_SYSTEM_START, SENTINEL_STATE_NOMINAL);
 
-	fails += assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_FAULT_CLEARED, SENTINEL_STATE_NOMINAL);
-	fails += assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_COMMUNICATION_LOST, SENTINEL_STATE_FAIL_SAFE);
-	fails += assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_FAULT_ESCALATED, SENTINEL_STATE_FAIL_SAFE);
+	assert_transition(SENTINEL_STATE_NOMINAL, SENTINEL_EVENT_HEARTBEAT_TIMEOUT, SENTINEL_STATE_DEGRADED);
+	assert_transition(SENTINEL_STATE_NOMINAL, SENTINEL_EVENT_VALUE_INCONSISTENT, SENTINEL_STATE_DEGRADED);
+	assert_transition(SENTINEL_STATE_NOMINAL, SENTINEL_EVENT_COMM_LOST, SENTINEL_STATE_DEGRADED);
 
-	fails += assert_transition(SENTINEL_STATE_FAIL_SAFE, SENTINEL_EVENT_MANUAL_RESET, SENTINEL_STATE_INIT);
+	assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_HEARTBEAT_TIMEOUT, SENTINEL_STATE_FAIL_SAFE);
+	assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_VALUE_INCONSISTENT, SENTINEL_STATE_FAIL_SAFE);
+	assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_COMM_LOST, SENTINEL_STATE_FAIL_SAFE);
 
-	fails += assert_transition((SentinelState)99, SENTINEL_EVENT_STARTUP_COMPLETE, SENTINEL_STATE_FAIL_SAFE);
+	assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_HEARTBEAT_OK, SENTINEL_STATE_DEGRADED);
+	assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_VALUE_OK, SENTINEL_STATE_DEGRADED);
+	assert_transition(SENTINEL_STATE_DEGRADED, SENTINEL_EVENT_COMM_OK, SENTINEL_STATE_DEGRADED);
 
-	if (fails != 0) {
-		fprintf(stderr, "%d Sentinel state machine test(s) failed.\n", fails);
-		return 1;
-	}
+	assert_transition(SENTINEL_STATE_FAIL_SAFE, SENTINEL_EVENT_RESET_REQUESTED, SENTINEL_STATE_INIT);
+	assert_transition(SENTINEL_STATE_FAIL_SAFE, SENTINEL_EVENT_HEARTBEAT_OK, SENTINEL_STATE_FAIL_SAFE);
+	assert_transition(SENTINEL_STATE_FAIL_SAFE, SENTINEL_EVENT_VALUE_OK, SENTINEL_STATE_FAIL_SAFE);
+	assert_transition(SENTINEL_STATE_FAIL_SAFE, SENTINEL_EVENT_COMM_OK, SENTINEL_STATE_FAIL_SAFE);
+
+	assert_transition((SentinelState)99, SENTINEL_EVENT_HEARTBEAT_OK, SENTINEL_STATE_FAIL_SAFE);
+	assert_transition((SentinelState)99, (SentinelEvent)99, SENTINEL_STATE_FAIL_SAFE);
+
+	sentinel_init(&sentinel);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_SYSTEM_START);
+	assert_state(&sentinel, SENTINEL_STATE_NOMINAL);
+
+	sentinel_init(&sentinel);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_SYSTEM_START);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	assert_state(&sentinel, SENTINEL_STATE_DEGRADED);
+
+	sentinel_init(&sentinel);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_SYSTEM_START);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_OK);
+	assert_state(&sentinel, SENTINEL_STATE_DEGRADED);
+
+	sentinel_init(&sentinel);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_SYSTEM_START);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_OK);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_VALUE_OK);
+	assert_state(&sentinel, SENTINEL_STATE_DEGRADED);
+
+	sentinel_init(&sentinel);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_SYSTEM_START);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_TIMEOUT);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_HEARTBEAT_OK);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_VALUE_OK);
+	sentinel_apply_event(&sentinel, SENTINEL_EVENT_COMM_OK);
+	assert_state(&sentinel, SENTINEL_STATE_NOMINAL);
 
 	puts("All Sentinel state machine tests passed.");
 
