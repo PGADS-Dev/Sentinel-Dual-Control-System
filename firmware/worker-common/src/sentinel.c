@@ -2,7 +2,7 @@
 #include "sentinel_event.h"
 #include "sentinel_state.h"
 #include <assert.h>
-#include <stdlib.h>
+#include <stddef.h>
 
 void sentinel_reset_flags(struct Sentinel *sentinel) {
 	sentinel->heartbeat_recovered = false;
