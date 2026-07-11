@@ -141,11 +141,11 @@ int main(void) {
 	failures += assert_state(&sentinel, SENTINEL_STATE_INIT);
 
 	if (failures != 0) {
-		printf("%d Sentinel state machine tests failed.\n", failures);
+		fprintf(stderr, "%d Sentinel state machine tests failed.\n", failures);
 		return EXIT_FAILURE;
 	}
 
-	puts("All Sentinel state machine tests passed.");
+	fputs("All Sentinel state machine tests passed.\n", stderr);
 
 	return EXIT_SUCCESS;
 }
