@@ -132,9 +132,11 @@ Fault activation and clearing are independent:
 
 An `*_OK` event clears only its corresponding fault. It must not clear unrelated faults.
 
-Recovery from `DEGRADED` to `NOMINAL` occurs after processing a recovery event only when the active fault set becomes empty. A worker degraded by heartbeat loss therefore requires `HEARTBEAT_OK`, not unrelated `VALUE_OK` and `COMM_OK` confirmations.
+Recovery from `DEGRADED` to `NOMINAL` occurs only when the recovery event corresponds to an active fault and clearing that fault leaves the active fault set empty. A worker degraded by heartbeat loss therefore requires `HEARTBEAT_OK`, not unrelated `VALUE_OK` and `COMM_OK` confirmations.
 
 Events received before a fault becomes active must not be cached as proof of a future recovery.
+
+While in `FAIL_SAFE`, recovery events do not clear latched active faults. Fault tracking is reinitialized only when `RESET_REQUESTED` transitions the worker to `INIT`.
 
 ## Communication loss policy
 
@@ -154,20 +156,21 @@ The required response is therefore:
 ## Transition matrix
 
 The following matrix defines every valid state and event combination. "Remain" means that the operating state does not change, although the associated active fault may be updated as defined above.
+When two states are listed as `A / B`, the transition enters `A` only when the guard described in `Reason` is satisfied. Otherwise, it enters or remains in `B`.
 
 ### From `INIT`
 
 | Event | Next state | Reason |
 |---|---|---|
-| `SYSTEM_START` | `NOMINAL` | Startup coordinator confirms that all baseline checks are valid |
-| `HEARTBEAT_TIMEOUT` | Remain `INIT` | Startup remains inhibited while heartbeat health is invalid |
-| `HEARTBEAT_OK` | Remain `INIT` | Health information may clear its fault, but cannot start the system |
-| `VALUE_INCONSISTENT` | Remain `INIT` | Startup remains inhibited while peer information is incoherent |
-| `VALUE_OK` | Remain `INIT` | Coherence may be restored, but cannot start the system |
+| `SYSTEM_START` | `NOMINAL` / `INIT` | Enter `NOMINAL` only if no active fault exists |
+| `HEARTBEAT_TIMEOUT` | Remain `INIT` | Activate `HEARTBEAT_LOST` and inhibit startup |
+| `HEARTBEAT_OK` | Remain `INIT` | Clear `HEARTBEAT_LOST` if active, but do not start the system |
+| `VALUE_INCONSISTENT` | Remain `INIT` | Activate `INCOHERENT_PEER_STATE` and inhibit startup |
+| `VALUE_OK` | Remain `INIT` | Clear `INCOHERENT_PEER_STATE` if active, but do not start the system |
 | `COMM_LOST` | `FAIL_SAFE` | Required exchange cannot be established or trusted |
 | `COMM_OK` | Remain `INIT` | Communication recovery alone cannot start the system |
 | `FAULT_ESCALATED` | `FAIL_SAFE` | Startup detected an unacceptable persistent or severe fault |
-| `RESET_REQUESTED` | Remain `INIT` | The worker is already in the reset/startup state |
+| `RESET_REQUESTED` | Remain `INIT` | The worker is already in the reset and startup state |
 | `INVALID` or unrecognized event | `FAIL_SAFE` | Invalid input must not be silently ignored |
 
 ### From `NOMINAL`
@@ -175,9 +178,9 @@ The following matrix defines every valid state and event combination. "Remain" m
 | Event | Next state | Reason |
 |---|---|---|
 | `SYSTEM_START` | Remain `NOMINAL` | A duplicate start event has no operational effect |
-| `HEARTBEAT_TIMEOUT` | `DEGRADED` | Peer freshness is invalid, but controlled reduced operation may remain possible |
+| `HEARTBEAT_TIMEOUT` | `DEGRADED` | Activate `HEARTBEAT_LOST`; controlled reduced operation remains possible |
 | `HEARTBEAT_OK` | Remain `NOMINAL` | Heartbeat health remains valid |
-| `VALUE_INCONSISTENT` | `DEGRADED` | Peer disagreement requires controlled reduced operation |
+| `VALUE_INCONSISTENT` | `DEGRADED` | Activate `INCOHERENT_PEER_STATE`; peer disagreement requires reduced operation |
 | `VALUE_OK` | Remain `NOMINAL` | Peer information remains coherent |
 | `COMM_LOST` | `FAIL_SAFE` | Required cross-monitoring is unavailable |
 | `COMM_OK` | Remain `NOMINAL` | Communication remains valid |
@@ -190,12 +193,12 @@ The following matrix defines every valid state and event combination. "Remain" m
 | Event | Next state | Reason |
 |---|---|---|
 | `SYSTEM_START` | Remain `DEGRADED` | A start event cannot override an active fault |
-| `HEARTBEAT_TIMEOUT` | Remain `DEGRADED` | Confirms `HEARTBEAT_LOST`; repetition is not implicit escalation |
-| `HEARTBEAT_OK` | `NOMINAL` if no active fault remains, otherwise remain `DEGRADED` | Clears only `HEARTBEAT_LOST` |
-| `VALUE_INCONSISTENT` | Remain `DEGRADED` | Confirms `INCOHERENT_PEER_STATE`; repetition is not implicit escalation |
-| `VALUE_OK` | `NOMINAL` if no active fault remains, otherwise remain `DEGRADED` | Clears only `INCOHERENT_PEER_STATE` |
+| `HEARTBEAT_TIMEOUT` | Remain `DEGRADED` | Confirm `HEARTBEAT_LOST`; repetition is not implicit escalation |
+| `HEARTBEAT_OK` | `NOMINAL` / `DEGRADED` | Clear `HEARTBEAT_LOST`; recover only if it was active and no fault remains |
+| `VALUE_INCONSISTENT` | Remain `DEGRADED` | Confirm `INCOHERENT_PEER_STATE`; repetition is not implicit escalation |
+| `VALUE_OK` | `NOMINAL` / `DEGRADED` | Clear `INCOHERENT_PEER_STATE`; recover only if it was active and no fault remains |
 | `COMM_LOST` | `FAIL_SAFE` | Required cross-monitoring is unavailable |
-| `COMM_OK` | `NOMINAL` if no active fault remains, otherwise remain `DEGRADED` | Clears only `COMMUNICATION_LOST`; normally cannot unlock a prior fail-safe entry |
+| `COMM_OK` | Remain `DEGRADED` | Communication health cannot clear the fault responsible for degraded operation |
 | `FAULT_ESCALATED` | `FAIL_SAFE` | Explicit fault policy rejects continued degraded operation |
 | `RESET_REQUESTED` | Remain `DEGRADED` | Reset is accepted only from `FAIL_SAFE` in v0.1 |
 | `INVALID` or unrecognized event | `FAIL_SAFE` | Invalid input is unsafe while already degraded |
@@ -232,7 +235,7 @@ config:
 ---
 stateDiagram-v2
     [*] --> INIT
-    INIT --> NOMINAL: SYSTEM_START
+    INIT --> NOMINAL: SYSTEM_START and no active fault
     INIT --> FAIL_SAFE: COMM_LOST, FAULT_ESCALATED, invalid event
 
     NOMINAL --> DEGRADED: HEARTBEAT_TIMEOUT or VALUE_INCONSISTENT
