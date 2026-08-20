@@ -25,6 +25,8 @@ const char *sentinel_event_to_string(SentinelEvent event) {
 		return "COMM_LOST";
 	case SENTINEL_EVENT_COMM_OK:
 		return "COMM_OK";
+	case SENTINEL_EVENT_FAULT_ESCALATED:
+		return "FAULT_ESCALATED";
 	case SENTINEL_EVENT_HEARTBEAT_OK:
 		return "HEARTBEAT_OK";
 	case SENTINEL_EVENT_HEARTBEAT_TIMEOUT:
