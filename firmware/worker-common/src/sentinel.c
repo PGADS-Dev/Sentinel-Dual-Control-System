@@ -48,6 +48,21 @@ static void sentinel_clear_fault_and_recover(struct Sentinel *sentinel, Sentinel
 	}
 }
 
+bool sentinel_has_fault(const struct Sentinel *sentinel, SentinelFault fault) {
+	assert(sentinel != NULL);
+	return sentinel_fault_set_contains(&sentinel->active_faults, fault);
+}
+
+SentinelState sentinel_get_state(const struct Sentinel *sentinel) {
+	assert(sentinel != NULL);
+	return sentinel->state;
+}
+
+SentinelFaultSet sentinel_get_active_faults(const struct Sentinel *sentinel) {
+	assert(sentinel != NULL);
+	return sentinel->active_faults;
+}
+
 void sentinel_apply_event(struct Sentinel *sentinel, SentinelEvent event) {
 	assert(sentinel != NULL);
 
@@ -66,22 +81,13 @@ void sentinel_apply_event(struct Sentinel *sentinel, SentinelEvent event) {
 	if (sentinel->state == SENTINEL_STATE_FAIL_SAFE) {
 		switch (event) {
 		case SENTINEL_EVENT_HEARTBEAT_TIMEOUT:
-			sentinel_fault_set_add(
-			    &sentinel->active_faults,
-			    SENTINEL_FAULT_HEARTBEAT_LOST
-			);
+			sentinel_fault_set_add(&sentinel->active_faults, SENTINEL_FAULT_HEARTBEAT_LOST);
 			break;
 		case SENTINEL_EVENT_VALUE_INCONSISTENT:
-			sentinel_fault_set_add(
-			    &sentinel->active_faults,
-			    SENTINEL_FAULT_INCOHERENT_PEER_STATE
-			);
+			sentinel_fault_set_add(&sentinel->active_faults, SENTINEL_FAULT_INCOHERENT_PEER_STATE);
 			break;
 		case SENTINEL_EVENT_COMM_LOST:
-			sentinel_fault_set_add(
-			    &sentinel->active_faults,
-			    SENTINEL_FAULT_COMMUNICATION_LOST
-			);
+			sentinel_fault_set_add(&sentinel->active_faults, SENTINEL_FAULT_COMMUNICATION_LOST);
 			break;
 		case SENTINEL_EVENT_RESET_REQUESTED:
 			sentinel_fault_set_clear(&sentinel->active_faults);
@@ -102,54 +108,35 @@ void sentinel_apply_event(struct Sentinel *sentinel, SentinelEvent event) {
 
 	switch (event) {
 	case SENTINEL_EVENT_SYSTEM_START:
-		if (sentinel->state == SENTINEL_STATE_INIT &&
-		    sentinel_fault_set_is_empty(&sentinel->active_faults)) {
+		if (sentinel->state == SENTINEL_STATE_INIT && sentinel_fault_set_is_empty(&sentinel->active_faults)) {
 			sentinel->state = SENTINEL_STATE_NOMINAL;
 		}
 		return;
 	case SENTINEL_EVENT_HEARTBEAT_TIMEOUT:
-		sentinel_fault_set_add(
-		    &sentinel->active_faults,
-		    SENTINEL_FAULT_HEARTBEAT_LOST
-		);
+		sentinel_fault_set_add(&sentinel->active_faults, SENTINEL_FAULT_HEARTBEAT_LOST);
 
 		if (sentinel->state == SENTINEL_STATE_NOMINAL) {
 			sentinel->state = SENTINEL_STATE_DEGRADED;
 		}
 		return;
 	case SENTINEL_EVENT_HEARTBEAT_OK:
-		sentinel_clear_fault_and_recover(
-		    sentinel,
-		    SENTINEL_FAULT_HEARTBEAT_LOST
-		);
+		sentinel_clear_fault_and_recover(sentinel, SENTINEL_FAULT_HEARTBEAT_LOST);
 		return;
 	case SENTINEL_EVENT_VALUE_INCONSISTENT:
-		sentinel_fault_set_add(
-		    &sentinel->active_faults,
-		    SENTINEL_FAULT_INCOHERENT_PEER_STATE
-		);
+		sentinel_fault_set_add(&sentinel->active_faults, SENTINEL_FAULT_INCOHERENT_PEER_STATE);
 		if (sentinel->state == SENTINEL_STATE_NOMINAL) {
 			sentinel->state = SENTINEL_STATE_DEGRADED;
 		}
 		return;
 	case SENTINEL_EVENT_VALUE_OK:
-		sentinel_clear_fault_and_recover(
-		    sentinel,
-		    SENTINEL_FAULT_INCOHERENT_PEER_STATE
-		);
+		sentinel_clear_fault_and_recover(sentinel, SENTINEL_FAULT_INCOHERENT_PEER_STATE);
 		return;
 	case SENTINEL_EVENT_COMM_LOST:
-		sentinel_fault_set_add(
-		    &sentinel->active_faults,
-		    SENTINEL_FAULT_COMMUNICATION_LOST
-		);
+		sentinel_fault_set_add(&sentinel->active_faults, SENTINEL_FAULT_COMMUNICATION_LOST);
 		sentinel->state = SENTINEL_STATE_FAIL_SAFE;
 		return;
 	case SENTINEL_EVENT_COMM_OK:
-		sentinel_clear_fault_and_recover(
-		    sentinel,
-		    SENTINEL_FAULT_COMMUNICATION_LOST
-		);
+		sentinel_clear_fault_and_recover(sentinel, SENTINEL_FAULT_COMMUNICATION_LOST);
 		return;
 	case SENTINEL_EVENT_FAULT_ESCALATED:
 		sentinel->state = SENTINEL_STATE_FAIL_SAFE;
@@ -173,5 +160,3 @@ void sentinel_init(struct Sentinel *sentinel) {
 	sentinel->state = SENTINEL_STATE_INIT;
 	sentinel->active_faults.bits = SENTINEL_FAULT_NONE;
 }
-
-SentinelState sentinel_get_state(const struct Sentinel *sentinel) { return sentinel->state; }

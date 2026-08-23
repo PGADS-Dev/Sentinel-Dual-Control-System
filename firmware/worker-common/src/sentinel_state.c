@@ -52,36 +52,9 @@ const char *sentinel_fault_to_string(SentinelFault fault) {
 		return "COMMUNICATION_LOST";
 	case SENTINEL_FAULT_INCOHERENT_PEER_STATE:
 		return "INCOHERENT_PEER_STATE";
+	case SENTINEL_FAULT_NONE:
+		return "NONE";
 	default:
 		return "UNKNOWN_FAULT";
-	}
-}
-
-SentinelState sentinel_next_state(SentinelState current, SentinelEvent event) {
-	switch (current) {
-	case SENTINEL_STATE_INIT:
-		if (event == SENTINEL_EVENT_SYSTEM_START) {
-			return SENTINEL_STATE_NOMINAL;
-		}
-		return SENTINEL_STATE_INIT;
-	case SENTINEL_STATE_NOMINAL:
-		if (event == SENTINEL_EVENT_HEARTBEAT_TIMEOUT || event == SENTINEL_EVENT_VALUE_INCONSISTENT ||
-		    event == SENTINEL_EVENT_COMM_LOST) {
-			return SENTINEL_STATE_DEGRADED;
-		}
-		return SENTINEL_STATE_NOMINAL;
-	case SENTINEL_STATE_DEGRADED:
-		if (event == SENTINEL_EVENT_HEARTBEAT_TIMEOUT || event == SENTINEL_EVENT_VALUE_INCONSISTENT ||
-		    event == SENTINEL_EVENT_COMM_LOST) {
-			return SENTINEL_STATE_FAIL_SAFE;
-		}
-		return SENTINEL_STATE_DEGRADED;
-	case SENTINEL_STATE_FAIL_SAFE:
-		if (event == SENTINEL_EVENT_RESET_REQUESTED) {
-			return SENTINEL_STATE_INIT;
-		}
-		return SENTINEL_STATE_FAIL_SAFE;
-	default:
-		return SENTINEL_STATE_FAIL_SAFE;
 	}
 }
