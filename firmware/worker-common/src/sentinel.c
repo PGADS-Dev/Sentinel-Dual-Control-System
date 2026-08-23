@@ -1,12 +1,17 @@
 #include "sentinel.h"
 #include "sentinel_event.h"
+#include "sentinel_fault.h"
 #include "sentinel_state.h"
 #include <assert.h>
 #include <stddef.h>
 
-static inline void sentinel_fault_set_clear(SentinelFaultSet *set) { set->bits = SENTINEL_FAULT_NONE; }
+static inline void sentinel_fault_set_clear(SentinelFaultSet *set) {
+	set->bits = SENTINEL_FAULT_NONE;
+}
 
-static inline void sentinel_fault_set_add(SentinelFaultSet *set, SentinelFault fault) { set->bits |= (uint32_t)fault; }
+static inline void sentinel_fault_set_add(SentinelFaultSet *set, SentinelFault fault) {
+	set->bits |= (uint32_t)fault;
+}
 
 static inline void sentinel_fault_set_remove(SentinelFaultSet *set, SentinelFault fault) {
 	set->bits &= ~(uint32_t)fault;
@@ -16,56 +21,149 @@ static inline bool sentinel_fault_set_contains(const SentinelFaultSet *set, Sent
 	return (set->bits & (uint32_t)fault) != 0u;
 }
 
-static inline bool sentinel_fault_set_is_empty(const SentinelFaultSet *set) { return set->bits == 0u; }
+static inline bool sentinel_fault_set_is_empty(const SentinelFaultSet *set) {
+	return set->bits == 0u;
+}
+
+static bool sentinel_state_is_valid(SentinelState state) {
+	switch (state) {
+	case SENTINEL_STATE_INIT:
+	case SENTINEL_STATE_NOMINAL:
+	case SENTINEL_STATE_DEGRADED:
+	case SENTINEL_STATE_FAIL_SAFE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static void sentinel_clear_fault_and_recover(struct Sentinel *sentinel, SentinelFault fault) {
+	bool was_active = sentinel_fault_set_contains(&sentinel->active_faults, fault);
+
+	sentinel_fault_set_remove(&sentinel->active_faults, fault);
+
+	if (sentinel->state == SENTINEL_STATE_DEGRADED && was_active &&
+	    sentinel_fault_set_is_empty(&sentinel->active_faults)) {
+		sentinel->state = SENTINEL_STATE_NOMINAL;
+	}
+}
 
 void sentinel_apply_event(struct Sentinel *sentinel, SentinelEvent event) {
 	assert(sentinel != NULL);
-	SentinelState old_state = sentinel->state;
+
+	if (!sentinel_state_is_valid(sentinel->state)) {
+		sentinel->state = SENTINEL_STATE_FAIL_SAFE;
+		return;
+	}
+
+	/*
+	 * FAIL_SAFE is latched.
+	 *
+	 * New fault information may still be recorded, but recovery events
+	 * cannot clear faults. Only RESET_REQUESTED unlocks the worker and
+	 * reinitializes fault tracking
+	 */
+	if (sentinel->state == SENTINEL_STATE_FAIL_SAFE) {
+		switch (event) {
+		case SENTINEL_EVENT_HEARTBEAT_TIMEOUT:
+			sentinel_fault_set_add(
+			    &sentinel->active_faults,
+			    SENTINEL_FAULT_HEARTBEAT_LOST
+			);
+			break;
+		case SENTINEL_EVENT_VALUE_INCONSISTENT:
+			sentinel_fault_set_add(
+			    &sentinel->active_faults,
+			    SENTINEL_FAULT_INCOHERENT_PEER_STATE
+			);
+			break;
+		case SENTINEL_EVENT_COMM_LOST:
+			sentinel_fault_set_add(
+			    &sentinel->active_faults,
+			    SENTINEL_FAULT_COMMUNICATION_LOST
+			);
+			break;
+		case SENTINEL_EVENT_RESET_REQUESTED:
+			sentinel_fault_set_clear(&sentinel->active_faults);
+			sentinel->state = SENTINEL_STATE_INIT;
+			break;
+		case SENTINEL_EVENT_INVALID:
+		case SENTINEL_EVENT_SYSTEM_START:
+		case SENTINEL_EVENT_HEARTBEAT_OK:
+		case SENTINEL_EVENT_VALUE_OK:
+		case SENTINEL_EVENT_COMM_OK:
+		case SENTINEL_EVENT_FAULT_ESCALATED:
+			break;
+		default:
+			break;
+		}
+		return;
+	}
 
 	switch (event) {
-	case SENTINEL_EVENT_HEARTBEAT_TIMEOUT:
-		sentinel_fault_set_add(&sentinel->active_faults, SENTINEL_FAULT_HEARTBEAT_LOST);
-		break;
-
-	case SENTINEL_EVENT_HEARTBEAT_OK:
-		sentinel_fault_set_remove(&sentinel->active_faults, SENTINEL_FAULT_HEARTBEAT_LOST);
-		break;
-	case SENTINEL_EVENT_INVALID:
-	case SENTINEL_EVENT_COMM_LOST:
-	case SENTINEL_EVENT_COMM_OK:
-	case SENTINEL_EVENT_FAULT_ESCALATED:
-	case SENTINEL_EVENT_RESET_REQUESTED:
 	case SENTINEL_EVENT_SYSTEM_START:
+		if (sentinel->state == SENTINEL_STATE_INIT &&
+		    sentinel_fault_set_is_empty(&sentinel->active_faults)) {
+			sentinel->state = SENTINEL_STATE_NOMINAL;
+		}
+		return;
+	case SENTINEL_EVENT_HEARTBEAT_TIMEOUT:
+		sentinel_fault_set_add(
+		    &sentinel->active_faults,
+		    SENTINEL_FAULT_HEARTBEAT_LOST
+		);
+
+		if (sentinel->state == SENTINEL_STATE_NOMINAL) {
+			sentinel->state = SENTINEL_STATE_DEGRADED;
+		}
+		return;
+	case SENTINEL_EVENT_HEARTBEAT_OK:
+		sentinel_clear_fault_and_recover(
+		    sentinel,
+		    SENTINEL_FAULT_HEARTBEAT_LOST
+		);
+		return;
 	case SENTINEL_EVENT_VALUE_INCONSISTENT:
+		sentinel_fault_set_add(
+		    &sentinel->active_faults,
+		    SENTINEL_FAULT_INCOHERENT_PEER_STATE
+		);
+		if (sentinel->state == SENTINEL_STATE_NOMINAL) {
+			sentinel->state = SENTINEL_STATE_DEGRADED;
+		}
+		return;
 	case SENTINEL_EVENT_VALUE_OK:
-		break;
-	}
-
-	if (old_state == SENTINEL_STATE_DEGRADED) {
-		if (event == SENTINEL_EVENT_HEARTBEAT_OK) {
-			// sentinel->heartbeat_recovered = true;
-		} else if (event == SENTINEL_EVENT_VALUE_OK) {
-			// sentinel->value_recovered = true;
-		} else if (event == SENTINEL_EVENT_COMM_OK) {
-			// sentinel->comm_recovered = true;
-		}
-
-		// if (sentinel->heartbeat_recovered && sentinel->value_recovered && sentinel->comm_recovered) {
-		// 	sentinel->state = SENTINEL_STATE_NOMINAL;
-		// 	sentinel_reset_flags(sentinel);
-		// 	return;
-		// }
-	}
-
-	SentinelState new_state = sentinel_next_state(old_state, event);
-
-	if (new_state != old_state) {
-		sentinel->state = new_state;
-
-		if (new_state == SENTINEL_STATE_DEGRADED || new_state == SENTINEL_STATE_FAIL_SAFE ||
-		    new_state == SENTINEL_STATE_INIT || new_state == SENTINEL_STATE_NOMINAL) {
-			// sentinel_reset_flags(sentinel);
-		}
+		sentinel_clear_fault_and_recover(
+		    sentinel,
+		    SENTINEL_FAULT_INCOHERENT_PEER_STATE
+		);
+		return;
+	case SENTINEL_EVENT_COMM_LOST:
+		sentinel_fault_set_add(
+		    &sentinel->active_faults,
+		    SENTINEL_FAULT_COMMUNICATION_LOST
+		);
+		sentinel->state = SENTINEL_STATE_FAIL_SAFE;
+		return;
+	case SENTINEL_EVENT_COMM_OK:
+		sentinel_clear_fault_and_recover(
+		    sentinel,
+		    SENTINEL_FAULT_COMMUNICATION_LOST
+		);
+		return;
+	case SENTINEL_EVENT_FAULT_ESCALATED:
+		sentinel->state = SENTINEL_STATE_FAIL_SAFE;
+		return;
+	case SENTINEL_EVENT_RESET_REQUESTED:
+		/*
+		 * RESET_REQUESTED is accepted only from FAIL_SAFE.
+		 * It is ignored in INIT, NOMINAL and DEGRADED.
+		 */
+		return;
+	case SENTINEL_EVENT_INVALID:
+	default:
+		sentinel->state = SENTINEL_STATE_FAIL_SAFE;
+		return;
 	}
 }
 
